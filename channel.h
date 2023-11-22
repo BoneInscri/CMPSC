@@ -13,9 +13,9 @@
 #include "linked_list.h"
 
 // for send、receive and select 
-#define SEND 0
-#define RECV 1
-#define SELECT_ 3
+#define RECV 0
+#define SEND 1
+#define SELECT_ 2
 
 // select lists
 #define SELECT_RECV 0
@@ -79,8 +79,9 @@ typedef struct
     /* ADD ANY STRUCT ENTRIES YOU NEED HERE */
     pthread_mutex_t mutex;
     int closed;
-    my_sema* sema[2]; // sema[0] : send , sema[1] : recv
-    list_t *select_sema_list[2]; // for select , list[0] : send_list, list[1] : recv_list
+    my_sema* sema[2]; // sema[0] : recv , sema[1] : send
+    list_t *select_sema_list[2]; // for select , list[0] : recv_list, list[1] : send_list
+    int select_count[2]; // count[0] : recv, count[1] : send
 } chan_t;
 
 typedef struct
@@ -140,5 +141,6 @@ enum chan_status channel_destroy(chan_t *channel);
 // In the event that a channel is closed or encounters any error, the error should be propagated and returned through select
 // Additionally, selected_index is set to the index of the channel that generated the error
 enum chan_status channel_select(size_t channel_count, select_t *channel_list, size_t *selected_index);
+
 
 #endif // CHANNEL_H

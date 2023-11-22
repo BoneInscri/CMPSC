@@ -74,6 +74,46 @@ static void channel_sema_wait(chan_t *channel, int type)
     my_sema_wait(sema_cur);
 }
 
+static int channel_select_signal(chan_t *channel, int type)
+{
+    assert(channel);
+    assert(type == SELECT_SEND || type == SELECT_RECV);
+
+    list_t *list_head = channel->select_sema_list[type];
+
+    list_node_t *node_tmp = list_begin(list_head);
+
+    while (node_tmp != &list_head->head)
+    {
+        my_sema *sema_cur = (my_sema *)(node_tmp->data);
+
+        Mysema_Lock(sema_cur);
+        assert(sema_cur->count <= 0);
+        // printf("iter, channel %p, sema_cur %p, select signal yes, count : %d\n", channel, sema_cur, sema_cur->count);
+
+        // int value;
+        // sem_getvalue(&sema_cur->sema, &value);
+        if (sema_cur->count != 0)
+        {
+            Mysema_Unlock(sema_cur);
+
+            my_sema_post(sema_cur);
+            list_remove(list_head, node_tmp, 0); // alloc = 0, not free data (must!!!)
+            // printf("channel %p, sema_first %p, select signal yes, count : %d, value : %d\n", channel, sema_cur, sema_cur->count, value);
+            return 1;
+        }
+        else
+        {
+            Mysema_Unlock(sema_cur);
+            node_tmp = list_next(node_tmp);
+
+            // printf("select signal next, count : %d, value : %d\n", sema_cur->count, value);
+        }
+    }
+    // printf("select signal fail\n");
+    return 0;
+}
+
 // sema signal
 static void channel_sema_signal(chan_t *channel, int type)
 {
@@ -82,14 +122,33 @@ static void channel_sema_signal(chan_t *channel, int type)
     // get sema
     my_sema *sema_cur = channel->sema[type];
 
-    if (type == SEND)
+    Mysema_Lock(sema_cur);
+    if (type == SEND && sema_cur->count == buffer_capacity(channel->buffer))
     {
-        assert(sema_cur->count != buffer_capacity(channel->buffer));
+        Mysema_Unlock(sema_cur);
+        if (!Channel_Select_Send_Sema_signal(channel))
+        // if (!channel_select_signal(channel, SELECT_SEND))
+        {
+            channel->select_count[SELECT_SEND]++;
+            // printf("select send, %d\n", channel->select_count[SELECT_SEND]);
+        }
+        return;
     }
-    if (type == RECV)
+    
+    if (type == RECV && sema_cur->count == 0)
     {
-        assert(sema_cur->count != 0);
+        Mysema_Unlock(sema_cur);
+        if (!Channel_Select_Recv_Sema_signal(channel))
+        // if (!channel_select_signal(channel, SELECT_RECV))
+        {
+            channel->select_count[SELECT_RECV]++;
+            // printf("select receive, %d\n", channel->select_count[SELECT_RECV]);
+        }
+        return;
     }
+    Mysema_Unlock(sema_cur);
+    
+    // printf("sema_signal %s\n", type ? "RECV": "SEND");
     // signal
     my_sema_post(sema_cur);
 }
@@ -146,7 +205,7 @@ static int channel_is_closed_atomic(chan_t *channel)
     return ret;
 }
 
-static void channel_select_save_sema(size_t channel_count, select_t *channel_list, my_sema *sema)
+static int channel_select_save_sema(size_t channel_count, select_t *channel_list, my_sema *sema)
 {
     select_t sel_cur;
     chan_t *channel;
@@ -157,15 +216,25 @@ static void channel_select_save_sema(size_t channel_count, select_t *channel_lis
         channel = sel_cur.channel;
         Channel_Lock(channel);
 
-        // insert it into the list
+        // if it has been signaled ?
         int type = sel_cur.is_send;
+        // printf("save sema, channel : %p, type : %s, count : %d\n", channel, type?"SEND":"RECV", channel->select_count[type]);
+        if ((channel->select_count)[type])
+        {
+            (channel->select_count)[type]--;
+            // printf("%d \n", channel->select_count[type]);
+            Channel_Unlock(channel);
+            return 0;
+        }
+
+        // insert it into the list
         list_t *list_head = channel->select_sema_list[type];
         list_insert(list_head, (void *)sema);
 
         // printf("save, sema : %p, channel : %p, list_count : %ld\n", sema, channel, list_count(list_head));
-
         Channel_Unlock(channel);
     }
+    return 1;
 }
 
 static void channel_select_restore_sema(size_t channel_count, select_t *channel_list, my_sema *sema)
@@ -192,46 +261,6 @@ static void channel_select_restore_sema(size_t channel_count, select_t *channel_
 
         Channel_Unlock(channel);
     }
-}
-
-static int channel_select_signal(chan_t *channel, int type)
-{
-    assert(channel);
-    assert(type == SELECT_SEND || type == SELECT_RECV);
-
-    list_t *list_head = channel->select_sema_list[type];
-
-    list_node_t *node_tmp = list_begin(list_head);
-
-    while (node_tmp != &list_head->head)
-    {
-        my_sema *sema_cur = (my_sema *)(node_tmp->data);
-
-        Mysema_Lock(sema_cur);
-        assert(sema_cur->count <= 0);
-        // printf("iter, channel %p, sema_cur %p, select signal yes, count : %d\n", channel, sema_cur, sema_cur->count);
-
-        int value;
-        sem_getvalue(&sema_cur->sema, &value);
-        if (sema_cur->count != 0)
-        {
-            Mysema_Unlock(sema_cur);
-
-            my_sema_post(sema_cur);
-            list_remove(list_head, node_tmp, 0); // alloc = 0, not free data (must!!!)
-            // printf("channel %p, sema_first %p, select signal yes, count : %d, value : %d\n", channel, sema_cur, sema_cur->count, value);
-            return 1;
-        }
-        else
-        {
-            Mysema_Unlock(sema_cur);
-            node_tmp = list_next(node_tmp);
-
-            // printf("select signal next, count : %d, value : %d\n", sema_cur->count, value);
-        }
-    }
-    // printf("select signal fail\n");
-    return 0;
 }
 
 void select_list_handler(void *data)
@@ -295,6 +324,10 @@ chan_t *channel_create(size_t size)
     // select sema list
     channel->select_sema_list[SELECT_SEND] = list_create();
     channel->select_sema_list[SELECT_RECV] = list_create();
+
+    // select count
+    channel->select_count[SELECT_SEND] = 0;
+    channel->select_count[SELECT_RECV] = 0;
     return channel;
 }
 
@@ -335,11 +368,13 @@ try_send:
     }
     else // buffer is not full
     {
-        if (!Channel_Select_Recv_Sema_signal(channel))
-        {
-            printf("Miss\n");
-            Channel_Recv_Sema_signal(channel);
-        }
+        // if (!Channel_Select_Recv_Sema_signal(channel))
+        // {
+        //     // printf("Miss\n");
+        //     Channel_Recv_Sema_signal(channel);
+        // }
+
+        Channel_Recv_Sema_signal(channel);
         // printf("send yes\n");
         ret_status = SUCCESS;
         // add data to buffer successfully
@@ -390,11 +425,12 @@ try_recv:
     {
         // get data from buffer successfully
         *data = data_ret;
-        if (!Channel_Select_Send_Sema_signal(channel))
-        {
-
-            Channel_Send_Sema_signal(channel);
-        }
+        // if (!Channel_Select_Send_Sema_signal(channel))
+        // {
+        //     Channel_Send_Sema_signal(channel);
+        // }
+        Channel_Send_Sema_signal(channel);
+        // printf("receive yes\n");
         ret_status = SUCCESS;
     }
 ret:
@@ -486,14 +522,14 @@ try_select:
             if (buffer_add(sel_cur->data, channel->buffer)) // buffer is not full
             {
                 ret_status = SUCCESS;
-                printf("send target! idx : %ld\n", idx);
+                // printf("select %p, send target! idx : %ld\n", channel_list, idx);
 
                 // add a new data successfully
-                if (!Channel_Select_Recv_Sema_signal(channel))
-                {
-                    Channel_Recv_Sema_signal(channel);
-                }
-
+                // if (!Channel_Select_Recv_Sema_signal(channel))
+                // {
+                //     Channel_Recv_Sema_signal(channel);
+                // }
+                Channel_Recv_Sema_signal(channel);
                 Channel_Unlock(channel);
                 goto ret;
             }
@@ -506,14 +542,14 @@ try_select:
 
                 ret_status = SUCCESS;
                 sel_cur->data = data_ret; // don't forget it !
-                printf("receive target! idx : %ld\n", idx);
+                // printf("select %p, receive target! idx : %ld\n", channel_list, idx);
 
                 // receive a new data successfully
-                if (!Channel_Select_Send_Sema_signal(channel))
-                {
-                    Channel_Send_Sema_signal(channel);
-                }
-
+                // if (!Channel_Select_Send_Sema_signal(channel))
+                // {
+                //     Channel_Send_Sema_signal(channel);
+                // }
+                Channel_Send_Sema_signal(channel);
                 Channel_Unlock(channel);
                 goto ret;
             }
@@ -528,7 +564,7 @@ ret:
     }
     else
     {
-        printf("no target\n");
+        // printf("select : %p, no target\n", channel_list);
         // no channel is available, it need sleep!
         assert(idx == channel_count);
         // local variable, in fact, this variable is from malloc...
@@ -536,9 +572,6 @@ ret:
         // sem_init(&selec_sem, 0, 0);
         my_sema *selec_sem = channel_mysema_init(NULL, SELECT_);
         // printf("save sema : %p\n", selec_sem);
-
-        channel_select_save_sema(channel_count, channel_list, selec_sem);
-
         // my_sema_wait(selec_sem);
         Mysema_Lock(selec_sem);
         selec_sem->count--;
@@ -546,9 +579,19 @@ ret:
         Mysema_Unlock(selec_sem);
         // channel_select_unlock(channel_count, channel_list); // unlock all mutexs!!!
 
-        printf("select sleep\n");
+        int ret = channel_select_save_sema(channel_count, channel_list, selec_sem);
+        if (ret == 0)
+        {
+            // printf("hit\n");
+            // printf("select : %p, not sleep\n", channel_list);
+            channel_select_restore_sema(channel_count, channel_list, selec_sem);
+            my_sema_destory(selec_sem, 1); // from malloc, free it
+            goto try_select;
+        }
+
+        // printf("select %p, select sleep\n", channel_list);
         sem_wait(&selec_sem->sema);
-        printf("select wakeup\n");
+        // printf("select %p, wakeup\n", channel_list);
 
         // channel_select_lock(channel_count, channel_list);
         channel_select_restore_sema(channel_count, channel_list, selec_sem);

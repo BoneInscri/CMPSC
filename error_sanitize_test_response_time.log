@@ -1,0 +1,110 @@
+==================
+WARNING: ThreadSanitizer: data race (pid=1955721)
+  Read of size 4 at 0x7b1400000070 by main thread (mutexes: write M0):
+    #0 channel_sema_signal /media/boneinscri/Expand_1/HDU/留学生辅导/1/CMPSC/channel.c:125 (channel_sanitize+0xbcdc2)
+    #1 channel_send /media/boneinscri/Expand_1/HDU/留学生辅导/1/CMPSC/channel.c:371 (channel_sanitize+0xbd0fe)
+    #2 test_response_time /media/boneinscri/Expand_1/HDU/留学生辅导/1/CMPSC/test.c:732 (channel_sanitize+0xc5295)
+    #3 single_test /media/boneinscri/Expand_1/HDU/留学生辅导/1/CMPSC/test.c:2061 (channel_sanitize+0xc6c65)
+    #4 main /media/boneinscri/Expand_1/HDU/留学生辅导/1/CMPSC/test.c:2100 (channel_sanitize+0x955e)
+
+  Previous write of size 4 at 0x7b1400000070 by thread T1 (mutexes: write M2):
+    #0 my_sema_wait /media/boneinscri/Expand_1/HDU/留学生辅导/1/CMPSC/channel.c:14 (channel_sanitize+0xbd1b0)
+    #1 channel_sema_wait /media/boneinscri/Expand_1/HDU/留学生辅导/1/CMPSC/channel.c:74 (channel_sanitize+0xbd1b0)
+    #2 channel_receive /media/boneinscri/Expand_1/HDU/留学生辅导/1/CMPSC/channel.c:408 (channel_sanitize+0xbd1b0)
+    #3 helper_receive /media/boneinscri/Expand_1/HDU/留学生辅导/1/CMPSC/test.c:96 (channel_sanitize+0xc039f)
+
+  As if synchronized via sleep:
+    #0 usleep <null> (channel_sanitize+0x48237)
+    #1 test_response_time /media/boneinscri/Expand_1/HDU/留学生辅导/1/CMPSC/test.c:729 (channel_sanitize+0xc527b)
+    #2 single_test /media/boneinscri/Expand_1/HDU/留学生辅导/1/CMPSC/test.c:2061 (channel_sanitize+0xc6c65)
+    #3 main /media/boneinscri/Expand_1/HDU/留学生辅导/1/CMPSC/test.c:2100 (channel_sanitize+0x955e)
+
+  Location is heap block of size 80 at 0x7b1400000050 allocated by main thread:
+    #0 malloc <null> (channel_sanitize+0x13947)
+    #1 channel_mysema_init /media/boneinscri/Expand_1/HDU/留学生辅导/1/CMPSC/channel.c:53 (channel_sanitize+0xbc97c)
+    #2 channel_create /media/boneinscri/Expand_1/HDU/留学生辅导/1/CMPSC/channel.c:312 (channel_sanitize+0xbcf4c)
+    #3 test_response_time /media/boneinscri/Expand_1/HDU/留学生辅导/1/CMPSC/test.c:714 (channel_sanitize+0xc5214)
+    #4 single_test /media/boneinscri/Expand_1/HDU/留学生辅导/1/CMPSC/test.c:2061 (channel_sanitize+0xc6c65)
+    #5 main /media/boneinscri/Expand_1/HDU/留学生辅导/1/CMPSC/test.c:2100 (channel_sanitize+0x955e)
+
+  Mutex M0 (0x7b1800000008) created at:
+    #0 pthread_mutex_init <null> (channel_sanitize+0x2dbd1)
+    #1 channel_create /media/boneinscri/Expand_1/HDU/留学生辅导/1/CMPSC/channel.c:309 (channel_sanitize+0xbcf23)
+    #2 test_response_time /media/boneinscri/Expand_1/HDU/留学生辅导/1/CMPSC/test.c:714 (channel_sanitize+0xc5214)
+    #3 single_test /media/boneinscri/Expand_1/HDU/留学生辅导/1/CMPSC/test.c:2061 (channel_sanitize+0xc6c65)
+    #4 main /media/boneinscri/Expand_1/HDU/留学生辅导/1/CMPSC/test.c:2100 (channel_sanitize+0x955e)
+
+  Mutex M2 (0x7b1400000078) created at:
+    #0 pthread_mutex_init <null> (channel_sanitize+0x2dbd1)
+    #1 my_sema_init /media/boneinscri/Expand_1/HDU/留学生辅导/1/CMPSC/channel.c:8 (channel_sanitize+0xbc9b7)
+    #2 channel_mysema_init /media/boneinscri/Expand_1/HDU/留学生辅导/1/CMPSC/channel.c:59 (channel_sanitize+0xbc9b7)
+    #3 channel_create /media/boneinscri/Expand_1/HDU/留学生辅导/1/CMPSC/channel.c:312 (channel_sanitize+0xbcf4c)
+    #4 test_response_time /media/boneinscri/Expand_1/HDU/留学生辅导/1/CMPSC/test.c:714 (channel_sanitize+0xc5214)
+    #5 single_test /media/boneinscri/Expand_1/HDU/留学生辅导/1/CMPSC/test.c:2061 (channel_sanitize+0xc6c65)
+    #6 main /media/boneinscri/Expand_1/HDU/留学生辅导/1/CMPSC/test.c:2100 (channel_sanitize+0x955e)
+
+  Thread T1 (tid=1955723, running) created by main thread at:
+    #0 pthread_create <null> (channel_sanitize+0x422a8)
+    #1 test_response_time /media/boneinscri/Expand_1/HDU/留学生辅导/1/CMPSC/test.c:727 (channel_sanitize+0xc5271)
+    #2 single_test /media/boneinscri/Expand_1/HDU/留学生辅导/1/CMPSC/test.c:2061 (channel_sanitize+0xc6c65)
+    #3 main /media/boneinscri/Expand_1/HDU/留学生辅导/1/CMPSC/test.c:2100 (channel_sanitize+0x955e)
+
+SUMMARY: ThreadSanitizer: data race /media/boneinscri/Expand_1/HDU/留学生辅导/1/CMPSC/channel.c:125 in channel_sema_signal
+==================
+==================
+WARNING: ThreadSanitizer: data race (pid=1955721)
+  Read of size 4 at 0x7b1400000020 by main thread (mutexes: write M0):
+    #0 channel_sema_signal /media/boneinscri/Expand_1/HDU/留学生辅导/1/CMPSC/channel.c:125 (channel_sanitize+0xbcdc2)
+    #1 channel_receive /media/boneinscri/Expand_1/HDU/留学生辅导/1/CMPSC/channel.c:426 (channel_sanitize+0xbd231)
+    #2 test_response_time /media/boneinscri/Expand_1/HDU/留学生辅导/1/CMPSC/test.c:757 (channel_sanitize+0xc536a)
+    #3 single_test /media/boneinscri/Expand_1/HDU/留学生辅导/1/CMPSC/test.c:2061 (channel_sanitize+0xc6c65)
+    #4 main /media/boneinscri/Expand_1/HDU/留学生辅导/1/CMPSC/test.c:2100 (channel_sanitize+0x955e)
+
+  Previous write of size 4 at 0x7b1400000020 by thread T15 (mutexes: write M1):
+    #0 my_sema_wait /media/boneinscri/Expand_1/HDU/留学生辅导/1/CMPSC/channel.c:14 (channel_sanitize+0xbd093)
+    #1 channel_sema_wait /media/boneinscri/Expand_1/HDU/留学生辅导/1/CMPSC/channel.c:74 (channel_sanitize+0xbd093)
+    #2 channel_send /media/boneinscri/Expand_1/HDU/留学生辅导/1/CMPSC/channel.c:353 (channel_sanitize+0xbd093)
+    #3 helper_send /media/boneinscri/Expand_1/HDU/留学生辅导/1/CMPSC/test.c:88 (channel_sanitize+0xc02cb)
+
+  As if synchronized via sleep:
+    #0 usleep <null> (channel_sanitize+0x48237)
+    #1 test_response_time /media/boneinscri/Expand_1/HDU/留学生辅导/1/CMPSC/test.c:754 (channel_sanitize+0xc534e)
+    #2 single_test /media/boneinscri/Expand_1/HDU/留学生辅导/1/CMPSC/test.c:2061 (channel_sanitize+0xc6c65)
+    #3 main /media/boneinscri/Expand_1/HDU/留学生辅导/1/CMPSC/test.c:2100 (channel_sanitize+0x955e)
+
+  Location is heap block of size 80 at 0x7b1400000000 allocated by main thread:
+    #0 malloc <null> (channel_sanitize+0x13947)
+    #1 channel_mysema_init /media/boneinscri/Expand_1/HDU/留学生辅导/1/CMPSC/channel.c:53 (channel_sanitize+0xbc97c)
+    #2 channel_create /media/boneinscri/Expand_1/HDU/留学生辅导/1/CMPSC/channel.c:311 (channel_sanitize+0xbcf30)
+    #3 test_response_time /media/boneinscri/Expand_1/HDU/留学生辅导/1/CMPSC/test.c:714 (channel_sanitize+0xc5214)
+    #4 single_test /media/boneinscri/Expand_1/HDU/留学生辅导/1/CMPSC/test.c:2061 (channel_sanitize+0xc6c65)
+    #5 main /media/boneinscri/Expand_1/HDU/留学生辅导/1/CMPSC/test.c:2100 (channel_sanitize+0x955e)
+
+  Mutex M0 (0x7b1800000008) created at:
+    #0 pthread_mutex_init <null> (channel_sanitize+0x2dbd1)
+    #1 channel_create /media/boneinscri/Expand_1/HDU/留学生辅导/1/CMPSC/channel.c:309 (channel_sanitize+0xbcf23)
+    #2 test_response_time /media/boneinscri/Expand_1/HDU/留学生辅导/1/CMPSC/test.c:714 (channel_sanitize+0xc5214)
+    #3 single_test /media/boneinscri/Expand_1/HDU/留学生辅导/1/CMPSC/test.c:2061 (channel_sanitize+0xc6c65)
+    #4 main /media/boneinscri/Expand_1/HDU/留学生辅导/1/CMPSC/test.c:2100 (channel_sanitize+0x955e)
+
+  Mutex M1 (0x7b1400000028) created at:
+    #0 pthread_mutex_init <null> (channel_sanitize+0x2dbd1)
+    #1 my_sema_init /media/boneinscri/Expand_1/HDU/留学生辅导/1/CMPSC/channel.c:8 (channel_sanitize+0xbc9b7)
+    #2 channel_mysema_init /media/boneinscri/Expand_1/HDU/留学生辅导/1/CMPSC/channel.c:59 (channel_sanitize+0xbc9b7)
+    #3 channel_create /media/boneinscri/Expand_1/HDU/留学生辅导/1/CMPSC/channel.c:311 (channel_sanitize+0xbcf30)
+    #4 test_response_time /media/boneinscri/Expand_1/HDU/留学生辅导/1/CMPSC/test.c:714 (channel_sanitize+0xc5214)
+    #5 single_test /media/boneinscri/Expand_1/HDU/留学生辅导/1/CMPSC/test.c:2061 (channel_sanitize+0xc6c65)
+    #6 main /media/boneinscri/Expand_1/HDU/留学生辅导/1/CMPSC/test.c:2100 (channel_sanitize+0x955e)
+
+  Thread T15 (tid=1956753, running) created by main thread at:
+    #0 pthread_create <null> (channel_sanitize+0x422a8)
+    #1 test_response_time /media/boneinscri/Expand_1/HDU/留学生辅导/1/CMPSC/test.c:752 (channel_sanitize+0xc5344)
+    #2 single_test /media/boneinscri/Expand_1/HDU/留学生辅导/1/CMPSC/test.c:2061 (channel_sanitize+0xc6c65)
+    #3 main /media/boneinscri/Expand_1/HDU/留学生辅导/1/CMPSC/test.c:2100 (channel_sanitize+0x955e)
+
+SUMMARY: ThreadSanitizer: data race /media/boneinscri/Expand_1/HDU/留学生辅导/1/CMPSC/channel.c:125 in channel_sema_signal
+==================
+ThreadSanitizer: reported 2 warnings
+Running test case: test_response_time : Testing send/receive response time (takes around 30 seconds) ...
+ALL TESTS PASSED
+Tests run: 1
