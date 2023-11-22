@@ -8,14 +8,15 @@ static void my_sema_init(my_sema *s, int value)
     pthread_mutex_init(&s->count_mutex, NULL);
 }
 
-static void my_sema_wait(my_sema *s)
-{
-    Mysema_Lock(s);
-    s->count--;
-    // printf("wait , count : %d -> %d\n", s->count + 1, s->count);
-    Mysema_Unlock(s);
-    sem_wait(&s->sema);
-}
+// static void my_sema_wait(my_sema *s)
+// {
+//     Mysema_Lock(s);
+//     s->count--;
+//     // printf("wait , count : %d -> %d\n", s->count + 1, s->count);
+//     Mysema_Unlock(s);
+
+//     sem_wait(&s->sema);
+// }
 
 static void my_sema_post(my_sema *s)
 {
@@ -71,9 +72,17 @@ static void channel_sema_wait(chan_t *channel, int type)
     my_sema *sema_cur = channel->sema[type];
 
     // wait
-    my_sema_wait(sema_cur);
+    // my_sema_wait(sema_cur);
+    Mysema_Lock(sema_cur);
+    sema_cur->count--;
+    // printf("wait , count : %d -> %d\n", s->count + 1, s->count);
+    Mysema_Unlock(sema_cur);
+
+    Channel_Unlock(channel);
+    sem_wait(&sema_cur->sema);
 }
 
+// __attribute__((used))
 static int channel_select_signal(chan_t *channel, int type)
 {
     assert(channel);
@@ -125,6 +134,7 @@ static void channel_sema_signal(chan_t *channel, int type)
     Mysema_Lock(sema_cur);
     if (type == SEND && sema_cur->count == buffer_capacity(channel->buffer))
     {
+        // printf("count : %d\n", sema_cur->count);
         Mysema_Unlock(sema_cur);
         if (!Channel_Select_Send_Sema_signal(channel))
         // if (!channel_select_signal(channel, SELECT_SEND))
@@ -134,7 +144,7 @@ static void channel_sema_signal(chan_t *channel, int type)
         }
         return;
     }
-    
+
     if (type == RECV && sema_cur->count == 0)
     {
         Mysema_Unlock(sema_cur);
@@ -147,8 +157,8 @@ static void channel_sema_signal(chan_t *channel, int type)
         return;
     }
     Mysema_Unlock(sema_cur);
-    
-    // printf("sema_signal %s\n", type ? "RECV": "SEND");
+
+    // printf("sema_signal %s\n", type ? "RECV" : "SEND");
     // signal
     my_sema_post(sema_cur);
 }
@@ -355,7 +365,6 @@ try_send:
 
         if (blocking == true) // blocking, just wait
         {
-            Channel_Unlock(channel);
             Channel_Send_Sema_wait(channel);
             goto try_send;
         }
@@ -374,8 +383,8 @@ try_send:
         //     Channel_Recv_Sema_signal(channel);
         // }
 
+        // printf("channel : %p, send yes\n", channel);
         Channel_Recv_Sema_signal(channel);
-        // printf("send yes\n");
         ret_status = SUCCESS;
         // add data to buffer successfully
     }
@@ -410,7 +419,6 @@ try_recv:
 
         if (blocking == true) // blocking, just wait
         {
-            Channel_Unlock(channel);
             Channel_Recv_Sema_wait(channel);
             goto try_recv;
         }
@@ -429,8 +437,8 @@ try_recv:
         // {
         //     Channel_Send_Sema_signal(channel);
         // }
+        // printf("channel : %p, receive yes\n", channel);
         Channel_Send_Sema_signal(channel);
-        // printf("receive yes\n");
         ret_status = SUCCESS;
     }
 ret:
@@ -501,7 +509,7 @@ enum chan_status channel_select(size_t channel_count, select_t *channel_list, si
     select_t *sel_cur;
     chan_t *channel;
     // channel_select_lock(channel_count, channel_list);
-
+    // printf("=============================\n");
 try_select:
     size_t idx = 0;
     for (; idx < channel_count; idx++)
